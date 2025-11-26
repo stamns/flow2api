@@ -8,6 +8,10 @@ from ..core.auth import AuthManager
 from ..core.database import Database
 from ..services.token_manager import TokenManager
 from ..services.proxy_manager import ProxyManager
+# Type hint only
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ..services.generation_handler import GenerationHandler
 
 router = APIRouter()
 
@@ -15,17 +19,19 @@ router = APIRouter()
 token_manager: TokenManager = None
 proxy_manager: ProxyManager = None
 db: Database = None
+generation_handler: "GenerationHandler" = None
 
 # Store active admin session tokens (in production, use Redis or database)
 active_admin_tokens = set()
 
 
-def set_dependencies(tm: TokenManager, pm: ProxyManager, database: Database):
+def set_dependencies(tm: TokenManager, pm: ProxyManager, database: Database, gh: "GenerationHandler"):
     """Set service instances"""
-    global token_manager, proxy_manager, db
+    global token_manager, proxy_manager, db, generation_handler
     token_manager = tm
     proxy_manager = pm
     db = database
+    generation_handler = gh
 
 
 # ========== Request Models ==========
@@ -443,6 +449,20 @@ async def update_generation_config(
     await db.reload_config_to_memory()
 
     return {"success": True, "message": "生成配置更新成功"}
+
+
+@router.post("/api/cache/purge")
+async def purge_cache(token: str = Depends(verify_admin_token)):
+    """Purge expired files from cache"""
+    try:
+        count = await generation_handler.file_cache.purge_expired_files()
+        return {
+            "success": True, 
+            "message": f"Cache purge completed. Removed {count} files.",
+            "removed_count": count
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cache purge failed: {str(e)}")
 
 
 # ========== System Info ==========

@@ -438,8 +438,7 @@ class GenerationHandler:
                 try:
                     if stream:
                         yield self._create_stream_chunk("缓存图片中...\n")
-                    cached_filename = await self.file_cache.download_and_cache(image_url, "image")
-                    local_url = f"{self._get_base_url()}/tmp/{cached_filename}"
+                    local_url = await self.file_cache.download_and_cache(image_url, "image")
                     if stream:
                         yield self._create_stream_chunk("✅ 图片缓存成功,准备返回缓存地址...\n")
                 except Exception as e:
@@ -697,8 +696,7 @@ class GenerationHandler:
                         try:
                             if stream:
                                 yield self._create_stream_chunk("正在缓存视频文件...\n")
-                            cached_filename = await self.file_cache.download_and_cache(video_url, "video")
-                            local_url = f"{self._get_base_url()}/tmp/{cached_filename}"
+                            local_url = await self.file_cache.download_and_cache(video_url, "video")
                             if stream:
                                 yield self._create_stream_chunk("✅ 视频缓存成功,准备返回缓存地址...\n")
                         except Exception as e:
