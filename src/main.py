@@ -113,19 +113,27 @@ async def lifespan(app: FastAPI):
 
 
 # Initialize components
+if os.getenv("VERCEL"):
+    print("🚀 Running on Vercel environment")
+    if not config.database_url:
+        print("⚠️ WARNING: DATABASE_URL environment variable is missing!")
+        print("Using ephemeral SQLite database in /tmp. Data will be lost on restart.")
+
 if config.database_url and (config.database_url.startswith("postgres://") or config.database_url.startswith("postgresql://")):
     print(f"🔌 Using Postgres database")
     db = PostgresAdapter(config.database_url)
 else:
-    print("📂 Using SQLite database")
-    db = SqliteAdapter()
+    if os.getenv("VERCEL"):
+        print("⚠️ WARNING: No valid DATABASE_URL found. Using SQLite in ephemeral /tmp storage (Data will be lost on restart!)")
+        # On Vercel, only /tmp is writable
+        db_path = "/tmp/flow.db"
+        db = SqliteAdapter(db_path)
+    else:
+        print("📂 Using SQLite database")
+        db = SqliteAdapter()
 
-db = Database()
 proxy_manager = ProxyManager(db, config)
 flow_client = FlowClient(proxy_manager, config)
-db = Database(os.getenv("DATABASE_PATH"))
-proxy_manager = ProxyManager(db)
-flow_client = FlowClient(proxy_manager)
 token_manager = TokenManager(db, flow_client)
 concurrency_manager = ConcurrencyManager()
 load_balancer = LoadBalancer(token_manager, concurrency_manager)
@@ -141,8 +149,7 @@ generation_handler = GenerationHandler(
 
 # Set dependencies
 routes.set_generation_handler(generation_handler)
-admin.set_dependencies(token_manager, proxy_manager, db, generation_handler)
-admin.set_dependencies(token_manager, proxy_manager, db, config)
+admin.set_dependencies(token_manager, proxy_manager, db, generation_handler, config)
 
 # Create FastAPI app
 app = FastAPI(

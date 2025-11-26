@@ -2,6 +2,7 @@ from typing import Any, Dict, Tuple, Type, Optional
 from pathlib import Path
 import tomli
 from pydantic.fields import FieldInfo
+from pydantic import Field, AliasChoices
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 class TomlConfigSettingsSource(PydanticBaseSettingsSource):
@@ -88,44 +89,53 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
 
 class Settings(BaseSettings):
     # Global / Auth
-    API_KEY: str = "han1234"
-    ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str = "admin"
+    API_KEY: str = Field(validation_alias=AliasChoices("api_key", "API_KEY"), default="han1234")
+    ADMIN_USERNAME: str = Field(validation_alias=AliasChoices("admin_username", "ADMIN_USERNAME"), default="admin")
+    ADMIN_PASSWORD: str = Field(validation_alias=AliasChoices("admin_password", "ADMIN_PASSWORD"), default="admin")
     DATABASE_URL: Optional[str] = None 
 
     # Flow
-    FLOW_LABS_BASE_URL: str = "https://labs.google/fx/api"
-    FLOW_API_BASE_URL: str = "https://aisandbox-pa.googleapis.com/v1"
-    FLOW_TIMEOUT: int = 120
-    FLOW_POLL_INTERVAL: float = 3.0
-    FLOW_MAX_POLL_ATTEMPTS: int = 200
-    FLOW_MAX_RETRIES: int = 3
+    FLOW_LABS_BASE_URL: str = Field(validation_alias=AliasChoices("flow_labs_base_url", "FLOW_LABS_BASE_URL"), default="https://labs.google/fx/api")
+    FLOW_API_BASE_URL: str = Field(validation_alias=AliasChoices("flow_api_base_url", "FLOW_API_BASE_URL"), default="https://aisandbox-pa.googleapis.com/v1")
+    FLOW_TIMEOUT: int = Field(validation_alias=AliasChoices("flow_timeout", "FLOW_TIMEOUT"), default=120)
+    FLOW_POLL_INTERVAL: float = Field(validation_alias=AliasChoices("flow_poll_interval", "FLOW_POLL_INTERVAL"), default=3.0)
+    FLOW_MAX_POLL_ATTEMPTS: int = Field(validation_alias=AliasChoices("flow_max_poll_attempts", "FLOW_MAX_POLL_ATTEMPTS"), default=200)
+    FLOW_MAX_RETRIES: int = Field(default=3) 
 
     # Server
-    SERVER_HOST: str = "0.0.0.0"
-    SERVER_PORT: int = 8000
-
+    SERVER_HOST: str = Field(validation_alias=AliasChoices("server_host", "SERVER_HOST"), default="0.0.0.0")
+    SERVER_PORT: int = Field(validation_alias=AliasChoices("server_port", "SERVER_PORT"), default=8000)
+    
     # Debug
-    DEBUG_ENABLED: bool = False
-    DEBUG_LOG_REQUESTS: bool = True
-    DEBUG_LOG_RESPONSES: bool = True
-    DEBUG_MASK_TOKEN: bool = True
-
+    DEBUG_ENABLED: bool = Field(validation_alias=AliasChoices("debug_enabled", "DEBUG_ENABLED"), default=False)
+    DEBUG_LOG_REQUESTS: bool = Field(validation_alias=AliasChoices("debug_log_requests", "DEBUG_LOG_REQUESTS"), default=True)
+    DEBUG_LOG_RESPONSES: bool = Field(validation_alias=AliasChoices("debug_log_responses", "DEBUG_LOG_RESPONSES"), default=True)
+    DEBUG_MASK_TOKEN: bool = Field(validation_alias=AliasChoices("debug_mask_token", "DEBUG_MASK_TOKEN"), default=True)
+    
     # Proxy
-    PROXY_ENABLED: bool = False
-    PROXY_URL: Optional[str] = None
-
+    PROXY_ENABLED: bool = Field(validation_alias=AliasChoices("proxy_enabled", "PROXY_ENABLED"), default=False)
+    PROXY_URL: Optional[str] = Field(validation_alias=AliasChoices("proxy_url", "PROXY_URL"), default="")
+    
     # Generation
-    GENERATION_IMAGE_TIMEOUT: int = 300
-    GENERATION_VIDEO_TIMEOUT: int = 1500
-
+    GENERATION_IMAGE_TIMEOUT: int = Field(validation_alias=AliasChoices("generation_image_timeout", "GENERATION_IMAGE_TIMEOUT"), default=300)
+    GENERATION_VIDEO_TIMEOUT: int = Field(validation_alias=AliasChoices("generation_video_timeout", "GENERATION_VIDEO_TIMEOUT"), default=1500)
+    
     # Admin
-    ADMIN_ERROR_BAN_THRESHOLD: int = 3
-
+    ADMIN_ERROR_BAN_THRESHOLD: int = Field(validation_alias=AliasChoices("admin_error_ban_threshold", "ADMIN_ERROR_BAN_THRESHOLD"), default=3)
+    
     # Cache
-    CACHE_ENABLED: bool = False
-    CACHE_TIMEOUT: int = 7200
-    CACHE_BASE_URL: Optional[str] = None
+    CACHE_ENABLED: bool = Field(validation_alias=AliasChoices("cache_enabled", "CACHE_ENABLED"), default=False)
+    CACHE_TIMEOUT: int = Field(validation_alias=AliasChoices("cache_timeout", "CACHE_TIMEOUT"), default=7200)
+    CACHE_BASE_URL: Optional[str] = Field(validation_alias=AliasChoices("cache_base_url", "CACHE_BASE_URL"), default="")
+
+    # Storage
+    STORAGE_BACKEND: str = Field(validation_alias=AliasChoices("storage_backend", "STORAGE_BACKEND"), default="local")
+    S3_BUCKET_NAME: Optional[str] = Field(validation_alias=AliasChoices("s3_bucket_name", "S3_BUCKET_NAME"), default=None)
+    S3_REGION_NAME: Optional[str] = Field(validation_alias=AliasChoices("s3_region_name", "S3_REGION_NAME"), default=None)
+    S3_ENDPOINT_URL: Optional[str] = Field(validation_alias=AliasChoices("s3_endpoint_url", "S3_ENDPOINT_URL"), default=None)
+    S3_ACCESS_KEY: Optional[str] = Field(validation_alias=AliasChoices("s3_access_key", "S3_ACCESS_KEY"), default=None)
+    S3_SECRET_KEY: Optional[str] = Field(validation_alias=AliasChoices("s3_secret_key", "S3_SECRET_KEY"), default=None)
+    S3_PUBLIC_DOMAIN: Optional[str] = Field(validation_alias=AliasChoices("s3_public_domain", "S3_PUBLIC_DOMAIN"), default=None)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -193,6 +203,15 @@ class Settings(BaseSettings):
                 "timeout": self.CACHE_TIMEOUT,
                 "base_url": self.CACHE_BASE_URL or "",
             },
+            "storage": {
+                "backend": self.STORAGE_BACKEND,
+                "s3_bucket_name": self.S3_BUCKET_NAME,
+                "s3_region_name": self.S3_REGION_NAME,
+                "s3_endpoint_url": self.S3_ENDPOINT_URL,
+                "s3_access_key": self.S3_ACCESS_KEY,
+                "s3_secret_key": self.S3_SECRET_KEY,
+                "s3_public_domain": self.S3_PUBLIC_DOMAIN,
+            }
         }
 
 settings = Settings()

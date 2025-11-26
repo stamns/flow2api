@@ -21,7 +21,6 @@ router = APIRouter()
 # Dependency injection
 token_manager: TokenManager = None
 proxy_manager: ProxyManager = None
-db: Database = None
 generation_handler: "GenerationHandler" = None
 config: Config = None
 db: DatabaseAdapter = None
@@ -30,21 +29,13 @@ db: DatabaseAdapter = None
 active_admin_tokens = set()
 
 
-def set_dependencies(tm: TokenManager, pm: ProxyManager, database: Database, gh: "GenerationHandler"):
-def set_dependencies(tm: TokenManager, pm: ProxyManager, database: DatabaseAdapter):
+def set_dependencies(tm: TokenManager, pm: ProxyManager, database: DatabaseAdapter, gh: "GenerationHandler", cfg: Config):
     """Set service instances"""
-    global token_manager, proxy_manager, db, generation_handler
+    global token_manager, proxy_manager, db, generation_handler, config
     token_manager = tm
     proxy_manager = pm
     db = database
     generation_handler = gh
-def set_dependencies(tm: TokenManager, pm: ProxyManager, database: Database, cfg: Config):
-def set_dependencies(tm: TokenManager, pm: ProxyManager, database: DatabaseAdapter):
-    """Set service instances"""
-    global token_manager, proxy_manager, db, config
-    token_manager = tm
-    proxy_manager = pm
-    db = database
     config = cfg
 
 
