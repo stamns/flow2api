@@ -1,11 +1,12 @@
 """Proxy management module"""
 from typing import Optional
-from ..core.database import Database
+from ..core.db.base import DatabaseAdapter
 from ..core.models import ProxyConfig
 
 class ProxyManager:
     """Proxy configuration manager"""
 
+    def __init__(self, db: DatabaseAdapter):
     def __init__(self, db: Database, config):
         self.db = db
         self.config = config

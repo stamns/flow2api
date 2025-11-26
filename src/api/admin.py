@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import secrets
 from ..core.auth import AuthManager
-from ..core.database import Database
+from ..core.db.base import DatabaseAdapter
 from ..services.token_manager import TokenManager
 from ..services.proxy_manager import ProxyManager
 from ..core.config import config
@@ -15,13 +15,13 @@ router = APIRouter()
 # Dependency injection
 token_manager: TokenManager = None
 proxy_manager: ProxyManager = None
-db: Database = None
+db: DatabaseAdapter = None
 
 # Store active admin session tokens (in production, use Redis or database)
 active_admin_tokens = set()
 
 
-def set_dependencies(tm: TokenManager, pm: ProxyManager, database: Database):
+def set_dependencies(tm: TokenManager, pm: ProxyManager, database: DatabaseAdapter):
     """Set service instances"""
     global token_manager, proxy_manager, db
     token_manager = tm
