@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 from typing import Optional
 from curl_cffi.requests import AsyncSession
-from ..core.config import config
 from ..core.logger import debug_logger
 from .storage_backends import LocalStorageBackend, S3StorageBackend
 
