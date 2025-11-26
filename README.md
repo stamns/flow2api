@@ -78,6 +78,10 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### 方式三：Vercel 部署
+
+详细部署指南请参考 [Vercel Deployment Guide](docs/vercel.md) (English)。
+
 ### 首次访问
 
 服务启动后,访问管理后台: **http://localhost:8000**
