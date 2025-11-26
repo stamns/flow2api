@@ -82,6 +82,10 @@ class Config:
         if os.getenv("ADMIN_ERROR_BAN_THRESHOLD"):
             self._config["admin"]["error_ban_threshold"] = int(os.getenv("ADMIN_ERROR_BAN_THRESHOLD"))
 
+        # Database settings
+        if os.getenv("DATABASE_URL"):
+            self._config["database"] = {"url": os.getenv("DATABASE_URL")}
+
         # Cache settings
         if "cache" not in self._config:
             self._config["cache"] = {}
@@ -254,6 +258,11 @@ class Config:
         if "cache" not in self._config:
             self._config["cache"] = {}
         self._config["cache"]["base_url"] = base_url
+
+    @property
+    def database_url(self) -> Optional[str]:
+        """Get database URL from environment"""
+        return self._config.get("database", {}).get("url")
 
 # Global config instance
 config = Config()

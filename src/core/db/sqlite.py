@@ -4,22 +4,27 @@ import json
 from datetime import datetime
 from typing import Optional, List
 from pathlib import Path
-from .models import Token, TokenStats, Task, RequestLog, AdminConfig, ProxyConfig, GenerationConfig, CacheConfig, Project
+from ..models import Token, TokenStats, Task, RequestLog, AdminConfig, ProxyConfig, GenerationConfig, CacheConfig, Project
+from .base import DatabaseAdapter
 
 
-class Database:
+class SqliteAdapter(DatabaseAdapter):
     """SQLite database manager"""
 
     def __init__(self, db_path: str = None):
         if db_path is None:
             # Store database in data directory
-            data_dir = Path(__file__).parent.parent.parent / "data"
+            data_dir = Path(__file__).parent.parent.parent.parent / "data"
             data_dir.mkdir(exist_ok=True)
             db_path = str(data_dir / "flow.db")
         self.db_path = db_path
 
-    def db_exists(self) -> bool:
+    async def is_initialized(self) -> bool:
         """Check if database file exists"""
+        return Path(self.db_path).exists()
+
+    def db_exists(self) -> bool:
+        """Check if database file exists (deprecated, use is_initialized)"""
         return Path(self.db_path).exists()
 
     async def _table_exists(self, db, table_name: str) -> bool:
@@ -913,7 +918,7 @@ class Database:
         - Generation config (image_timeout, video_timeout)
         - Proxy config will be handled by ProxyManager
         """
-        from .config import config
+        from ..config import config
 
         # Reload admin config
         admin_config = await self.get_admin_config()

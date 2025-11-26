@@ -2,7 +2,7 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
-from ..core.database import Database
+from ..core.db.base import DatabaseAdapter
 from ..core.models import Token, Project
 from ..core.logger import debug_logger
 from .flow_client import FlowClient
@@ -12,7 +12,7 @@ from .proxy_manager import ProxyManager
 class TokenManager:
     """Token lifecycle manager with AT auto-refresh"""
 
-    def __init__(self, db: Database, flow_client: FlowClient):
+    def __init__(self, db: DatabaseAdapter, flow_client: FlowClient):
         self.db = db
         self.flow_client = flow_client
         self._lock = asyncio.Lock()
