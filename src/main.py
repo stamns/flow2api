@@ -5,9 +5,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from pathlib import Path
+import os
 
 from .core.config import config
-from .core.database import Database
+from .core.db.sqlite import SqliteAdapter
+from .core.db.postgres import PostgresAdapter
 from .services.flow_client import FlowClient
 from .services.proxy_manager import ProxyManager
 from .services.token_manager import TokenManager
@@ -29,7 +31,7 @@ async def lifespan(app: FastAPI):
     config_dict = config.get_raw_config()
 
     # Check if database exists (determine if first startup)
-    is_first_startup = not db.db_exists()
+    is_first_startup = not await db.is_initialized()
 
     # Initialize database tables structure
     await db.init_db()
@@ -71,6 +73,12 @@ async def lifespan(app: FastAPI):
     await concurrency_manager.initialize(tokens)
 
     # File cache cleanup is now manual/on-demand via purge endpoint
+    # Start file cache cleanup task
+    if not os.getenv("VERCEL"):
+        await generation_handler.file_cache.start_cleanup_task()
+        print(f"✓ File cache cleanup task started")
+    else:
+        print(f"✓ File cache cleanup task skipped (Vercel)")
 
     print(f"✓ Database initialized")
     print(f"✓ Total tokens: {len(tokens)}")
@@ -83,10 +91,26 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     print("Flow2API Shutting down...")
+    # Stop file cache cleanup task
+    if not os.getenv("VERCEL"):
+        await generation_handler.file_cache.stop_cleanup_task()
+        print("✓ File cache cleanup task stopped")
+    else:
+        print("✓ File cache cleanup task stopped (Vercel)")
 
 
 # Initialize components
+if config.database_url and (config.database_url.startswith("postgres://") or config.database_url.startswith("postgresql://")):
+    print(f"🔌 Using Postgres database")
+    db = PostgresAdapter(config.database_url)
+else:
+    print("📂 Using SQLite database")
+    db = SqliteAdapter()
+
 db = Database()
+proxy_manager = ProxyManager(db, config)
+flow_client = FlowClient(proxy_manager, config)
+db = Database(os.getenv("DATABASE_PATH"))
 proxy_manager = ProxyManager(db)
 flow_client = FlowClient(proxy_manager)
 token_manager = TokenManager(db, flow_client)
@@ -98,7 +122,8 @@ generation_handler = GenerationHandler(
     load_balancer,
     db,
     concurrency_manager,
-    proxy_manager  # 添加 proxy_manager 参数
+    proxy_manager,
+    config
 )
 
 # Set dependencies
@@ -131,6 +156,13 @@ if config.storage_backend == "local":
     tmp_dir = Path(__file__).parent.parent / "tmp"
     tmp_dir.mkdir(exist_ok=True)
     app.mount("/tmp", StaticFiles(directory=str(tmp_dir)), name="tmp")
+# Static files - serve tmp directory for cached files
+if os.getenv("VERCEL"):
+    tmp_dir = Path("/tmp")
+else:
+    tmp_dir = Path(__file__).parent.parent / "tmp"
+tmp_dir.mkdir(exist_ok=True)
+app.mount("/tmp", StaticFiles(directory=str(tmp_dir)), name="tmp")
 
 # HTML routes for frontend
 static_path = Path(__file__).parent.parent / "static"

@@ -5,7 +5,6 @@ import json
 import time
 from typing import Optional, AsyncGenerator, List, Dict, Any
 from ..core.logger import debug_logger
-from ..core.config import config
 from ..core.models import Task, RequestLog
 from .file_cache import FileCache
 
@@ -193,12 +192,13 @@ MODEL_CONFIG = {
 class GenerationHandler:
     """统一生成处理器"""
 
-    def __init__(self, flow_client, token_manager, load_balancer, db, concurrency_manager, proxy_manager):
+    def __init__(self, flow_client, token_manager, load_balancer, db, concurrency_manager, proxy_manager, config):
         self.flow_client = flow_client
         self.token_manager = token_manager
         self.load_balancer = load_balancer
         self.db = db
         self.concurrency_manager = concurrency_manager
+        self.config = config
         self.file_cache = FileCache(
             cache_dir="tmp",
             default_timeout=config.cache_timeout,
@@ -434,7 +434,7 @@ class GenerationHandler:
 
             # 缓存图片 (如果启用)
             local_url = image_url
-            if config.cache_enabled:
+            if self.config.cache_enabled:
                 try:
                     if stream:
                         yield self._create_stream_chunk("缓存图片中...\n")

@@ -22,6 +22,11 @@ class FileCache:
             default_timeout: Default cache timeout in seconds
             proxy_manager: ProxyManager instance for downloading files
         """
+        if os.getenv("VERCEL"):
+            cache_dir = "/tmp"
+        
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(exist_ok=True)
         self.default_timeout = default_timeout
         self.proxy_manager = proxy_manager
         
