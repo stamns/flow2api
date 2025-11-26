@@ -8,6 +8,7 @@ from ..core.auth import AuthManager
 from ..core.db.base import DatabaseAdapter
 from ..services.token_manager import TokenManager
 from ..services.proxy_manager import ProxyManager
+from ..core.config import config
 
 router = APIRouter()
 
@@ -374,6 +375,26 @@ async def st_to_at(
 
 
 # ========== Config Management ==========
+
+@router.get("/api/config/effective")
+async def get_effective_config(token: str = Depends(verify_admin_token)):
+    """Get effective configuration with lock status"""
+    raw_config = config.get_raw_config()
+    
+    # Mask secrets
+    if "global" in raw_config:
+        raw_config["global"]["api_key"] = "***"
+        raw_config["global"]["admin_password"] = "***"
+    
+    # Get locked status
+    locked = config.get_locked_status()
+    
+    return {
+        "success": True,
+        "config": raw_config,
+        "locked": locked
+    }
+
 
 @router.get("/api/config/proxy")
 async def get_proxy_config(token: str = Depends(verify_admin_token)):

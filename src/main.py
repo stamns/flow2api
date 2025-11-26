@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from pathlib import Path
+import os
 
 from .core.config import config
 from .core.db.sqlite import SqliteAdapter
@@ -72,12 +73,15 @@ async def lifespan(app: FastAPI):
     await concurrency_manager.initialize(tokens)
 
     # Start file cache cleanup task
-    await generation_handler.file_cache.start_cleanup_task()
+    if not os.getenv("VERCEL"):
+        await generation_handler.file_cache.start_cleanup_task()
+        print(f"✓ File cache cleanup task started")
+    else:
+        print(f"✓ File cache cleanup task skipped (Vercel)")
 
     print(f"✓ Database initialized")
     print(f"✓ Total tokens: {len(tokens)}")
     print(f"✓ Cache: {'Enabled' if config.cache_enabled else 'Disabled'} (timeout: {config.cache_timeout}s)")
-    print(f"✓ File cache cleanup task started")
     print(f"✓ Server running on http://{config.server_host}:{config.server_port}")
     print("=" * 60)
 
@@ -86,8 +90,11 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("Flow2API Shutting down...")
     # Stop file cache cleanup task
-    await generation_handler.file_cache.stop_cleanup_task()
-    print("✓ File cache cleanup task stopped")
+    if not os.getenv("VERCEL"):
+        await generation_handler.file_cache.stop_cleanup_task()
+        print("✓ File cache cleanup task stopped")
+    else:
+        print("✓ File cache cleanup task stopped (Vercel)")
 
 
 # Initialize components
@@ -98,6 +105,10 @@ else:
     print("📂 Using SQLite database")
     db = SqliteAdapter()
 
+db = Database()
+proxy_manager = ProxyManager(db, config)
+flow_client = FlowClient(proxy_manager, config)
+db = Database(os.getenv("DATABASE_PATH"))
 proxy_manager = ProxyManager(db)
 flow_client = FlowClient(proxy_manager)
 token_manager = TokenManager(db, flow_client)
@@ -109,7 +120,8 @@ generation_handler = GenerationHandler(
     load_balancer,
     db,
     concurrency_manager,
-    proxy_manager  # 添加 proxy_manager 参数
+    proxy_manager,
+    config
 )
 
 # Set dependencies
@@ -138,7 +150,10 @@ app.include_router(routes.router)
 app.include_router(admin.router)
 
 # Static files - serve tmp directory for cached files
-tmp_dir = Path(__file__).parent.parent / "tmp"
+if os.getenv("VERCEL"):
+    tmp_dir = Path("/tmp")
+else:
+    tmp_dir = Path(__file__).parent.parent / "tmp"
 tmp_dir.mkdir(exist_ok=True)
 app.mount("/tmp", StaticFiles(directory=str(tmp_dir)), name="tmp")
 
