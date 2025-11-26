@@ -6,14 +6,14 @@ import base64
 from typing import Dict, Any, Optional, List
 from curl_cffi.requests import AsyncSession
 from ..core.logger import debug_logger
-from ..core.config import config
 
 
 class FlowClient:
     """VideoFX API客户端"""
 
-    def __init__(self, proxy_manager):
+    def __init__(self, proxy_manager, config):
         self.proxy_manager = proxy_manager
+        self.config = config
         self.labs_base_url = config.flow_labs_base_url  # https://labs.google/fx/api
         self.api_base_url = config.flow_api_base_url    # https://aisandbox-pa.googleapis.com/v1
         self.timeout = config.flow_timeout
@@ -61,7 +61,7 @@ class FlowClient:
         })
 
         # Log request
-        if config.debug_enabled:
+        if self.config.debug_enabled:
             debug_logger.log_request(
                 method=method,
                 url=url,
@@ -95,7 +95,7 @@ class FlowClient:
                 duration_ms = (time.time() - start_time) * 1000
 
                 # Log response
-                if config.debug_enabled:
+                if self.config.debug_enabled:
                     debug_logger.log_response(
                         status_code=response.status_code,
                         headers=dict(response.headers),
@@ -110,7 +110,7 @@ class FlowClient:
             duration_ms = (time.time() - start_time) * 1000
             error_msg = str(e)
 
-            if config.debug_enabled:
+            if self.config.debug_enabled:
                 debug_logger.log_error(
                     error_message=error_msg,
                     status_code=getattr(e, 'status_code', None),

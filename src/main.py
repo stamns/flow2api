@@ -91,8 +91,8 @@ async def lifespan(app: FastAPI):
 
 # Initialize components
 db = Database()
-proxy_manager = ProxyManager(db)
-flow_client = FlowClient(proxy_manager)
+proxy_manager = ProxyManager(db, config)
+flow_client = FlowClient(proxy_manager, config)
 token_manager = TokenManager(db, flow_client)
 concurrency_manager = ConcurrencyManager()
 load_balancer = LoadBalancer(token_manager, concurrency_manager)
@@ -102,7 +102,8 @@ generation_handler = GenerationHandler(
     load_balancer,
     db,
     concurrency_manager,
-    proxy_manager  # 添加 proxy_manager 参数
+    proxy_manager,
+    config
 )
 
 # Set dependencies
