@@ -5,7 +5,7 @@ import json
 import time
 from typing import Optional, AsyncGenerator, List, Dict, Any
 from ..core.logger import debug_logger
-from ..core.config import config
+from ..core.config import Config
 from ..core.models import Task, RequestLog
 from .file_cache import FileCache
 
@@ -193,15 +193,16 @@ MODEL_CONFIG = {
 class GenerationHandler:
     """统一生成处理器"""
 
-    def __init__(self, flow_client, token_manager, load_balancer, db, concurrency_manager, proxy_manager):
+    def __init__(self, flow_client, token_manager, load_balancer, db, concurrency_manager, proxy_manager, config: Config):
         self.flow_client = flow_client
         self.token_manager = token_manager
         self.load_balancer = load_balancer
         self.db = db
         self.concurrency_manager = concurrency_manager
+        self.config = config
         self.file_cache = FileCache(
             cache_dir="tmp",
-            default_timeout=config.cache_timeout,
+            default_timeout=self.config.cache_timeout,
             proxy_manager=proxy_manager
         )
 
@@ -434,7 +435,7 @@ class GenerationHandler:
 
             # 缓存图片 (如果启用)
             local_url = image_url
-            if config.cache_enabled:
+            if self.config.cache_enabled:
                 try:
                     if stream:
                         yield self._create_stream_chunk("缓存图片中...\n")
@@ -488,10 +489,10 @@ class GenerationHandler:
 
         try:
             # 获取模型类型和配置
-            video_type = model_config.get("video_type")
-            supports_images = model_config.get("supports_images", False)
-            min_images = model_config.get("min_images", 0)
-            max_images = model_config.get("max_images", 0)
+            video_type = model_self.config.get("video_type")
+            supports_images = model_self.config.get("supports_images", False)
+            min_images = model_self.config.get("min_images", 0)
+            max_images = model_self.config.get("max_images", 0)
 
             # 图片数量
             image_count = len(images) if images else 0
@@ -658,8 +659,8 @@ class GenerationHandler:
     ) -> AsyncGenerator:
         """轮询视频生成结果"""
 
-        max_attempts = config.max_poll_attempts
-        poll_interval = config.poll_interval
+        max_attempts = self.config.max_poll_attempts
+        poll_interval = self.config.poll_interval
 
         for attempt in range(max_attempts):
             await asyncio.sleep(poll_interval)
@@ -693,7 +694,7 @@ class GenerationHandler:
 
                     # 缓存视频 (如果启用)
                     local_url = video_url
-                    if config.cache_enabled:
+                    if self.config.cache_enabled:
                         try:
                             if stream:
                                 yield self._create_stream_chunk("正在缓存视频文件...\n")
@@ -833,10 +834,10 @@ class GenerationHandler:
     def _get_base_url(self) -> str:
         """获取基础URL用于缓存文件访问"""
         # 优先使用配置的cache_base_url
-        if config.cache_base_url:
-            return config.cache_base_url
+        if self.config.cache_base_url:
+            return self.config.cache_base_url
         # 否则使用服务器地址
-        return f"http://{config.server_host}:{config.server_port}"
+        return f"http://{self.config.server_host}:{self.config.server_port}"
 
     async def _log_request(
         self,

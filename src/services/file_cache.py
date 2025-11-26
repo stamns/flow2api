@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
 from curl_cffi.requests import AsyncSession
-from ..core.config import config
 from ..core.logger import debug_logger
 
 

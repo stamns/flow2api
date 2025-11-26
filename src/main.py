@@ -50,21 +50,34 @@ async def lifespan(app: FastAPI):
         config.set_admin_username_from_db(admin_config.username)
         config.set_admin_password_from_db(admin_config.password)
         config.api_key = admin_config.api_key
+        config.set_error_ban_threshold(admin_config.error_ban_threshold)
 
     # Load cache configuration from database
     cache_config = await db.get_cache_config()
-    config.set_cache_enabled(cache_config.cache_enabled)
-    config.set_cache_timeout(cache_config.cache_timeout)
-    config.set_cache_base_url(cache_config.cache_base_url or "")
+    if cache_config:
+        config.set_cache_enabled(cache_config.cache_enabled)
+        config.set_cache_timeout(cache_config.cache_timeout)
+        config.set_cache_base_url(cache_config.cache_base_url or "")
 
     # Load generation configuration from database
     generation_config = await db.get_generation_config()
-    config.set_image_timeout(generation_config.image_timeout)
-    config.set_video_timeout(generation_config.video_timeout)
+    if generation_config:
+        config.set_image_timeout(generation_config.image_timeout)
+        config.set_video_timeout(generation_config.video_timeout)
 
     # Load debug configuration from database
     debug_config = await db.get_debug_config()
-    config.set_debug_enabled(debug_config.enabled)
+    if debug_config:
+        config.set_debug_enabled(debug_config.enabled)
+        config.set_debug_log_requests(debug_config.log_requests)
+        config.set_debug_log_responses(debug_config.log_responses)
+        config.set_debug_mask_token(debug_config.mask_token)
+
+    # Load proxy configuration from database
+    proxy_config = await db.get_proxy_config()
+    if proxy_config:
+        config.set_proxy_enabled(proxy_config.enabled)
+        config.set_proxy_url(proxy_config.proxy_url)
 
     # Initialize concurrency manager
     tokens = await token_manager.get_all_tokens()
@@ -91,8 +104,8 @@ async def lifespan(app: FastAPI):
 
 # Initialize components
 db = Database()
-proxy_manager = ProxyManager(db)
-flow_client = FlowClient(proxy_manager)
+proxy_manager = ProxyManager(db, config)
+flow_client = FlowClient(proxy_manager, config)
 token_manager = TokenManager(db, flow_client)
 concurrency_manager = ConcurrencyManager()
 load_balancer = LoadBalancer(token_manager, concurrency_manager)
@@ -102,12 +115,13 @@ generation_handler = GenerationHandler(
     load_balancer,
     db,
     concurrency_manager,
-    proxy_manager  # 添加 proxy_manager 参数
+    proxy_manager,
+    config
 )
 
 # Set dependencies
 routes.set_generation_handler(generation_handler)
-admin.set_dependencies(token_manager, proxy_manager, db)
+admin.set_dependencies(token_manager, proxy_manager, db, config)
 
 # Create FastAPI app
 app = FastAPI(

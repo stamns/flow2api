@@ -1,259 +1,207 @@
 """Configuration management for Flow2API"""
 import os
-import json
-import tomli
-from pathlib import Path
 from typing import Dict, Any, Optional
+from .settings import settings
 
 class Config:
-    """Application configuration"""
+    """Application configuration wrapper around Settings with mutable overrides"""
 
     def __init__(self):
-        self._config = self._load_config()
-        self._apply_env_vars()
-        self._admin_username: Optional[str] = None
-        self._admin_password: Optional[str] = None
-
-    def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from setting.toml"""
-        config_path = Path(__file__).parent.parent.parent / "config" / "setting.toml"
-        with open(config_path, "rb") as f:
-            return tomli.load(f)
-
-    def _apply_env_vars(self):
-        """Override configuration with environment variables"""
-        # Global settings
-        if os.getenv("API_KEY"):
-            self._config["global"]["api_key"] = os.getenv("API_KEY")
-        if os.getenv("ADMIN_USERNAME"):
-            self._config["global"]["admin_username"] = os.getenv("ADMIN_USERNAME")
-        if os.getenv("ADMIN_PASSWORD"):
-            self._config["global"]["admin_password"] = os.getenv("ADMIN_PASSWORD")
-
-        # Flow settings
-        if os.getenv("FLOW_LABS_BASE_URL"):
-            self._config["flow"]["labs_base_url"] = os.getenv("FLOW_LABS_BASE_URL")
-        if os.getenv("FLOW_API_BASE_URL"):
-            self._config["flow"]["api_base_url"] = os.getenv("FLOW_API_BASE_URL")
-        if os.getenv("FLOW_TIMEOUT"):
-            self._config["flow"]["timeout"] = int(os.getenv("FLOW_TIMEOUT"))
-        if os.getenv("FLOW_POLL_INTERVAL"):
-            self._config["flow"]["poll_interval"] = float(os.getenv("FLOW_POLL_INTERVAL"))
-        if os.getenv("FLOW_MAX_POLL_ATTEMPTS"):
-            self._config["flow"]["max_poll_attempts"] = int(os.getenv("FLOW_MAX_POLL_ATTEMPTS"))
-
-        # Server settings
-        if os.getenv("SERVER_HOST"):
-            self._config["server"]["host"] = os.getenv("SERVER_HOST")
-        if os.getenv("SERVER_PORT"):
-            self._config["server"]["port"] = int(os.getenv("SERVER_PORT"))
-
-        # Debug settings
-        if "debug" not in self._config:
-            self._config["debug"] = {}
-        if os.getenv("DEBUG_ENABLED"):
-            self._config["debug"]["enabled"] = os.getenv("DEBUG_ENABLED").lower() == "true"
-        if os.getenv("DEBUG_LOG_REQUESTS"):
-            self._config["debug"]["log_requests"] = os.getenv("DEBUG_LOG_REQUESTS").lower() == "true"
-        if os.getenv("DEBUG_LOG_RESPONSES"):
-            self._config["debug"]["log_responses"] = os.getenv("DEBUG_LOG_RESPONSES").lower() == "true"
-        if os.getenv("DEBUG_MASK_TOKEN"):
-            self._config["debug"]["mask_token"] = os.getenv("DEBUG_MASK_TOKEN").lower() == "true"
-
-        # Proxy settings
-        if "proxy" not in self._config:
-            self._config["proxy"] = {}
-        if os.getenv("PROXY_ENABLED"):
-            self._config["proxy"]["proxy_enabled"] = os.getenv("PROXY_ENABLED").lower() == "true"
-        if os.getenv("PROXY_URL"):
-            self._config["proxy"]["proxy_url"] = os.getenv("PROXY_URL")
-
-        # Generation settings
-        if "generation" not in self._config:
-            self._config["generation"] = {}
-        if os.getenv("GENERATION_IMAGE_TIMEOUT"):
-            self._config["generation"]["image_timeout"] = int(os.getenv("GENERATION_IMAGE_TIMEOUT"))
-        if os.getenv("GENERATION_VIDEO_TIMEOUT"):
-            self._config["generation"]["video_timeout"] = int(os.getenv("GENERATION_VIDEO_TIMEOUT"))
-
-        # Admin settings
-        if "admin" not in self._config:
-            self._config["admin"] = {}
-        if os.getenv("ADMIN_ERROR_BAN_THRESHOLD"):
-            self._config["admin"]["error_ban_threshold"] = int(os.getenv("ADMIN_ERROR_BAN_THRESHOLD"))
-
-        # Cache settings
-        if "cache" not in self._config:
-            self._config["cache"] = {}
-        if os.getenv("CACHE_ENABLED"):
-            self._config["cache"]["enabled"] = os.getenv("CACHE_ENABLED").lower() == "true"
-        if os.getenv("CACHE_TIMEOUT"):
-            self._config["cache"]["timeout"] = int(os.getenv("CACHE_TIMEOUT"))
-        if os.getenv("CACHE_BASE_URL"):
-            self._config["cache"]["base_url"] = os.getenv("CACHE_BASE_URL")
-
-    def reload_config(self):
-        """Reload configuration from file"""
-        self._config = self._load_config()
-        self._apply_env_vars()
+        # We rely on the global settings instance which has loaded from Env > TOML > Defaults
+        self._settings = settings
+        
+        # Runtime overrides (from DB)
+        self._db_admin_username: Optional[str] = None
+        self._db_admin_password: Optional[str] = None
+        self._db_api_key: Optional[str] = None
+        self._db_debug_enabled: Optional[bool] = None
+        self._db_debug_log_requests: Optional[bool] = None
+        self._db_debug_log_responses: Optional[bool] = None
+        self._db_debug_mask_token: Optional[bool] = None
+        self._db_proxy_enabled: Optional[bool] = None
+        self._db_proxy_url: Optional[str] = None
+        self._db_image_timeout: Optional[int] = None
+        self._db_video_timeout: Optional[int] = None
+        self._db_error_ban_threshold: Optional[int] = None
+        self._db_cache_enabled: Optional[bool] = None
+        self._db_cache_timeout: Optional[int] = None
+        self._db_cache_base_url: Optional[str] = None
 
     def get_raw_config(self) -> Dict[str, Any]:
-        """Get raw configuration dictionary"""
-        return self._config
+        """Get raw configuration dictionary (matching legacy structure)"""
+        return self._settings.to_legacy_dict()
+
+    # Helpers
+    def _get_effective_value(self, env_key: str, db_value: Any, settings_value: Any) -> Any:
+        """
+        Determine effective value:
+        1. Env Var (Locked) - checked via os.environ to distinguish from default
+        2. DB Override
+        3. Settings Value (which includes TOML/Default)
+        """
+        # If env var is explicitly set, use it (ignoring DB)
+        # Note: settings_value already contains the env var value if set,
+        # but we check os.environ to decide priority against DB.
+        if os.getenv(env_key) is not None:
+             return settings_value
+        
+        if db_value is not None:
+            return db_value
+            
+        return settings_value
 
     @property
     def admin_username(self) -> str:
-        # If admin_username is set from database, use it; otherwise fall back to config file
-        if self._admin_username is not None:
-            return self._admin_username
-        return self._config["global"]["admin_username"]
+        return self._get_effective_value("ADMIN_USERNAME", self._db_admin_username, self._settings.ADMIN_USERNAME)
 
     @admin_username.setter
     def admin_username(self, value: str):
-        self._admin_username = value
-        self._config["global"]["admin_username"] = value
+        self._db_admin_username = value
 
     def set_admin_username_from_db(self, username: str):
-        """Set admin username from database"""
-        self._admin_username = username
-
-    # Flow2API specific properties
-    @property
-    def flow_labs_base_url(self) -> str:
-        """Google Labs base URL for project management"""
-        return self._config["flow"]["labs_base_url"]
-
-    @property
-    def flow_api_base_url(self) -> str:
-        """Google AI Sandbox API base URL for generation"""
-        return self._config["flow"]["api_base_url"]
-
-    @property
-    def flow_timeout(self) -> int:
-        return self._config["flow"]["timeout"]
-
-    @property
-    def flow_max_retries(self) -> int:
-        return self._config["flow"]["max_retries"]
-
-    @property
-    def poll_interval(self) -> float:
-        return self._config["flow"]["poll_interval"]
-
-    @property
-    def max_poll_attempts(self) -> int:
-        return self._config["flow"]["max_poll_attempts"]
-
-    @property
-    def server_host(self) -> str:
-        return self._config["server"]["host"]
-
-    @property
-    def server_port(self) -> int:
-        return self._config["server"]["port"]
-
-    @property
-    def debug_enabled(self) -> bool:
-        return self._config.get("debug", {}).get("enabled", False)
-
-    @property
-    def debug_log_requests(self) -> bool:
-        return self._config.get("debug", {}).get("log_requests", True)
-
-    @property
-    def debug_log_responses(self) -> bool:
-        return self._config.get("debug", {}).get("log_responses", True)
-
-    @property
-    def debug_mask_token(self) -> bool:
-        return self._config.get("debug", {}).get("mask_token", True)
-
-    # Mutable properties for runtime updates
-    @property
-    def api_key(self) -> str:
-        return self._config["global"]["api_key"]
-
-    @api_key.setter
-    def api_key(self, value: str):
-        self._config["global"]["api_key"] = value
+        self._db_admin_username = username
 
     @property
     def admin_password(self) -> str:
-        # If admin_password is set from database, use it; otherwise fall back to config file
-        if self._admin_password is not None:
-            return self._admin_password
-        return self._config["global"]["admin_password"]
+        return self._get_effective_value("ADMIN_PASSWORD", self._db_admin_password, self._settings.ADMIN_PASSWORD)
 
     @admin_password.setter
     def admin_password(self, value: str):
-        self._admin_password = value
-        self._config["global"]["admin_password"] = value
+        self._db_admin_password = value
 
     def set_admin_password_from_db(self, password: str):
-        """Set admin password from database"""
-        self._admin_password = password
+        self._db_admin_password = password
+        
+    @property
+    def api_key(self) -> str:
+        return self._get_effective_value("API_KEY", self._db_api_key, self._settings.API_KEY)
+        
+    @api_key.setter
+    def api_key(self, value: str):
+        self._db_api_key = value
 
-    def set_debug_enabled(self, enabled: bool):
-        """Set debug mode enabled/disabled"""
-        if "debug" not in self._config:
-            self._config["debug"] = {}
-        self._config["debug"]["enabled"] = enabled
+    # Flow properties
+    @property
+    def flow_labs_base_url(self) -> str:
+        return self._settings.FLOW_LABS_BASE_URL
+        
+    @property
+    def flow_api_base_url(self) -> str:
+        return self._settings.FLOW_API_BASE_URL
+        
+    @property
+    def flow_timeout(self) -> int:
+        return self._settings.FLOW_TIMEOUT
+        
+    @property
+    def flow_max_retries(self) -> int:
+        return self._settings.FLOW_MAX_RETRIES
 
     @property
-    def image_timeout(self) -> int:
-        """Get image generation timeout in seconds"""
-        return self._config.get("generation", {}).get("image_timeout", 300)
+    def poll_interval(self) -> float:
+        return self._settings.FLOW_POLL_INTERVAL
 
+    @property
+    def max_poll_attempts(self) -> int:
+        return self._settings.FLOW_MAX_POLL_ATTEMPTS
+
+    @property
+    def server_host(self) -> str:
+        return self._settings.SERVER_HOST
+
+    @property
+    def server_port(self) -> int:
+        return self._settings.SERVER_PORT
+
+    # Debug
+    @property
+    def debug_enabled(self) -> bool:
+        return self._get_effective_value("DEBUG_ENABLED", self._db_debug_enabled, self._settings.DEBUG_ENABLED)
+
+    def set_debug_enabled(self, enabled: bool):
+        self._db_debug_enabled = enabled
+
+    @property
+    def debug_log_requests(self) -> bool:
+        return self._get_effective_value("DEBUG_LOG_REQUESTS", self._db_debug_log_requests, self._settings.DEBUG_LOG_REQUESTS)
+        
+    def set_debug_log_requests(self, enabled: bool):
+        self._db_debug_log_requests = enabled
+
+    @property
+    def debug_log_responses(self) -> bool:
+        return self._get_effective_value("DEBUG_LOG_RESPONSES", self._db_debug_log_responses, self._settings.DEBUG_LOG_RESPONSES)
+
+    def set_debug_log_responses(self, enabled: bool):
+        self._db_debug_log_responses = enabled
+
+    @property
+    def debug_mask_token(self) -> bool:
+        return self._get_effective_value("DEBUG_MASK_TOKEN", self._db_debug_mask_token, self._settings.DEBUG_MASK_TOKEN)
+
+    def set_debug_mask_token(self, enabled: bool):
+        self._db_debug_mask_token = enabled
+
+    # Proxy
+    @property
+    def proxy_enabled(self) -> bool:
+        return self._get_effective_value("PROXY_ENABLED", self._db_proxy_enabled, self._settings.PROXY_ENABLED)
+
+    def set_proxy_enabled(self, enabled: bool):
+        self._db_proxy_enabled = enabled
+        
+    @property
+    def proxy_url(self) -> Optional[str]:
+        val = self._get_effective_value("PROXY_URL", self._db_proxy_url, self._settings.PROXY_URL)
+        return val if val else None
+
+    def set_proxy_url(self, url: Optional[str]):
+        self._db_proxy_url = url
+    
+    # Generation
+    @property
+    def image_timeout(self) -> int:
+        return self._get_effective_value("GENERATION_IMAGE_TIMEOUT", self._db_image_timeout, self._settings.GENERATION_IMAGE_TIMEOUT)
+        
     def set_image_timeout(self, timeout: int):
-        """Set image generation timeout in seconds"""
-        if "generation" not in self._config:
-            self._config["generation"] = {}
-        self._config["generation"]["image_timeout"] = timeout
+        self._db_image_timeout = timeout
 
     @property
     def video_timeout(self) -> int:
-        """Get video generation timeout in seconds"""
-        return self._config.get("generation", {}).get("video_timeout", 1500)
+        return self._get_effective_value("GENERATION_VIDEO_TIMEOUT", self._db_video_timeout, self._settings.GENERATION_VIDEO_TIMEOUT)
 
     def set_video_timeout(self, timeout: int):
-        """Set video generation timeout in seconds"""
-        if "generation" not in self._config:
-            self._config["generation"] = {}
-        self._config["generation"]["video_timeout"] = timeout
+        self._db_video_timeout = timeout
 
-    # Cache configuration
+    # Admin config (threshold)
+    @property
+    def error_ban_threshold(self) -> int:
+        return self._get_effective_value("ADMIN_ERROR_BAN_THRESHOLD", self._db_error_ban_threshold, self._settings.ADMIN_ERROR_BAN_THRESHOLD)
+        
+    def set_error_ban_threshold(self, threshold: int):
+        self._db_error_ban_threshold = threshold
+
+    # Cache
     @property
     def cache_enabled(self) -> bool:
-        """Get cache enabled status"""
-        return self._config.get("cache", {}).get("enabled", False)
+        return self._get_effective_value("CACHE_ENABLED", self._db_cache_enabled, self._settings.CACHE_ENABLED)
 
     def set_cache_enabled(self, enabled: bool):
-        """Set cache enabled status"""
-        if "cache" not in self._config:
-            self._config["cache"] = {}
-        self._config["cache"]["enabled"] = enabled
+        self._db_cache_enabled = enabled
 
     @property
     def cache_timeout(self) -> int:
-        """Get cache timeout in seconds"""
-        return self._config.get("cache", {}).get("timeout", 7200)
+        return self._get_effective_value("CACHE_TIMEOUT", self._db_cache_timeout, self._settings.CACHE_TIMEOUT)
 
     def set_cache_timeout(self, timeout: int):
-        """Set cache timeout in seconds"""
-        if "cache" not in self._config:
-            self._config["cache"] = {}
-        self._config["cache"]["timeout"] = timeout
-
+        self._db_cache_timeout = timeout
+        
     @property
     def cache_base_url(self) -> str:
-        """Get cache base URL"""
-        return self._config.get("cache", {}).get("base_url", "")
+        return self._get_effective_value("CACHE_BASE_URL", self._db_cache_base_url, self._settings.CACHE_BASE_URL) or ""
 
     def set_cache_base_url(self, base_url: str):
-        """Set cache base URL"""
-        if "cache" not in self._config:
-            self._config["cache"] = {}
-        self._config["cache"]["base_url"] = base_url
+        self._db_cache_base_url = base_url
 
 # Global config instance
 config = Config()
