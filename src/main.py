@@ -8,7 +8,8 @@ from pathlib import Path
 import os
 
 from .core.config import config
-from .core.database import Database
+from .core.db.sqlite import SqliteAdapter
+from .core.db.postgres import PostgresAdapter
 from .services.flow_client import FlowClient
 from .services.proxy_manager import ProxyManager
 from .services.token_manager import TokenManager
@@ -30,7 +31,7 @@ async def lifespan(app: FastAPI):
     config_dict = config.get_raw_config()
 
     # Check if database exists (determine if first startup)
-    is_first_startup = not db.db_exists()
+    is_first_startup = not await db.is_initialized()
 
     # Initialize database tables structure
     await db.init_db()
@@ -110,6 +111,13 @@ async def lifespan(app: FastAPI):
 
 
 # Initialize components
+if config.database_url and (config.database_url.startswith("postgres://") or config.database_url.startswith("postgresql://")):
+    print(f"🔌 Using Postgres database")
+    db = PostgresAdapter(config.database_url)
+else:
+    print("📂 Using SQLite database")
+    db = SqliteAdapter()
+
 db = Database()
 proxy_manager = ProxyManager(db, config)
 flow_client = FlowClient(proxy_manager, config)

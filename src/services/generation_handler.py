@@ -194,6 +194,7 @@ class GenerationHandler:
     """统一生成处理器"""
 
     def __init__(self, flow_client, token_manager, load_balancer, db, concurrency_manager, proxy_manager, config: Config):
+    def __init__(self, flow_client, token_manager, load_balancer, db, concurrency_manager, proxy_manager, config):
         self.flow_client = flow_client
         self.token_manager = token_manager
         self.load_balancer = load_balancer

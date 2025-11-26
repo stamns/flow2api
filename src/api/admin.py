@@ -6,10 +6,11 @@ from pydantic import BaseModel
 from typing import Optional, List
 import secrets
 from ..core.auth import AuthManager
-from ..core.database import Database
+from ..core.db.base import DatabaseAdapter
 from ..services.token_manager import TokenManager
 from ..services.proxy_manager import ProxyManager
 from ..core.config import Config
+from ..core.config import config
 
 router = APIRouter()
 
@@ -18,12 +19,14 @@ token_manager: TokenManager = None
 proxy_manager: ProxyManager = None
 db: Database = None
 config: Config = None
+db: DatabaseAdapter = None
 
 # Store active admin session tokens (in production, use Redis or database)
 active_admin_tokens = set()
 
 
 def set_dependencies(tm: TokenManager, pm: ProxyManager, database: Database, cfg: Config):
+def set_dependencies(tm: TokenManager, pm: ProxyManager, database: DatabaseAdapter):
     """Set service instances"""
     global token_manager, proxy_manager, db, config
     token_manager = tm
@@ -379,6 +382,26 @@ async def st_to_at(
 
 
 # ========== Config Management ==========
+
+@router.get("/api/config/effective")
+async def get_effective_config(token: str = Depends(verify_admin_token)):
+    """Get effective configuration with lock status"""
+    raw_config = config.get_raw_config()
+    
+    # Mask secrets
+    if "global" in raw_config:
+        raw_config["global"]["api_key"] = "***"
+        raw_config["global"]["admin_password"] = "***"
+    
+    # Get locked status
+    locked = config.get_locked_status()
+    
+    return {
+        "success": True,
+        "config": raw_config,
+        "locked": locked
+    }
+
 
 @router.get("/api/config/proxy")
 async def get_proxy_config(token: str = Depends(verify_admin_token)):
