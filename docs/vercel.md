@@ -43,14 +43,38 @@ Configure these variables in your Vercel Project Settings.
       "version": 2,
       "builds": [
         {
-          "src": "src/main.py",
-          "use": "@vercel/python"
+          "src": "api/index.py",
+          "use": "@vercel/python",
+          "config": {
+            "maxDuration": 300,
+            "runtime": "python3.11"
+          }
         }
       ],
       "routes": [
         {
-          "src": "/(.*)",
-          "dest": "src/main.py"
+          "src": "/v1/(.*)",
+          "dest": "api/index.py"
+        },
+        {
+          "src": "/api/admin/(.*)",
+          "dest": "api/index.py"
+        },
+        {
+          "src": "/login",
+          "dest": "api/index.py"
+        },
+        {
+          "src": "/manage",
+          "dest": "api/index.py"
+        },
+        {
+          "src": "/static/(.*)",
+          "dest": "/static/$1"
+        },
+        {
+          "src": "/",
+          "dest": "api/index.py"
         }
       ]
     }
