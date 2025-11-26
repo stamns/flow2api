@@ -6,11 +6,13 @@ import base64
 from typing import Dict, Any, Optional, List
 from curl_cffi.requests import AsyncSession
 from ..core.logger import debug_logger
+from ..core.config import Config
 
 
 class FlowClient:
     """VideoFX API客户端"""
 
+    def __init__(self, proxy_manager, config: Config):
     def __init__(self, proxy_manager, config):
         self.proxy_manager = proxy_manager
         self.config = config

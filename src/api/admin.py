@@ -1,4 +1,5 @@
 """Admin API routes"""
+import os
 from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ from ..core.auth import AuthManager
 from ..core.db.base import DatabaseAdapter
 from ..services.token_manager import TokenManager
 from ..services.proxy_manager import ProxyManager
+from ..core.config import Config
 from ..core.config import config
 
 router = APIRouter()
@@ -15,18 +17,23 @@ router = APIRouter()
 # Dependency injection
 token_manager: TokenManager = None
 proxy_manager: ProxyManager = None
+db: Database = None
+config: Config = None
 db: DatabaseAdapter = None
 
 # Store active admin session tokens (in production, use Redis or database)
 active_admin_tokens = set()
 
 
+def set_dependencies(tm: TokenManager, pm: ProxyManager, database: Database, cfg: Config):
 def set_dependencies(tm: TokenManager, pm: ProxyManager, database: DatabaseAdapter):
     """Set service instances"""
-    global token_manager, proxy_manager, db
+    global token_manager, proxy_manager, db, config
     token_manager = tm
     proxy_manager = pm
     db = database
+    config = cfg
+
 
 
 # ========== Request Models ==========
@@ -151,8 +158,8 @@ async def change_password(
     # Update password in database
     await db.update_admin_config(password=request.new_password)
 
-    # 🔥 Hot reload: sync database config to memory
-    await db.reload_config_to_memory()
+    # Update config in memory
+    config.set_admin_password_from_db(request.new_password)
 
     # 🔑 Invalidate all admin session tokens (force re-login for security)
     active_admin_tokens.clear()
@@ -442,12 +449,14 @@ async def update_proxy_config(
 @router.get("/api/config/generation")
 async def get_generation_config(token: str = Depends(verify_admin_token)):
     """Get generation timeout configuration"""
-    config = await db.get_generation_config()
+    # config = await db.get_generation_config()
     return {
         "success": True,
         "config": {
             "image_timeout": config.image_timeout,
-            "video_timeout": config.video_timeout
+            "video_timeout": config.video_timeout,
+            "image_timeout_locked": os.getenv("GENERATION_IMAGE_TIMEOUT") is not None,
+            "video_timeout_locked": os.getenv("GENERATION_VIDEO_TIMEOUT") is not None,
         }
     }
 
@@ -460,8 +469,9 @@ async def update_generation_config(
     """Update generation timeout configuration"""
     await db.update_generation_config(request.image_timeout, request.video_timeout)
 
-    # 🔥 Hot reload: sync database config to memory
-    await db.reload_config_to_memory()
+    # Update config in memory
+    config.set_image_timeout(request.image_timeout)
+    config.set_video_timeout(request.video_timeout)
 
     return {"success": True, "message": "生成配置更新成功"}
 
