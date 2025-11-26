@@ -85,6 +85,7 @@ async def lifespan(app: FastAPI):
     tokens = await token_manager.get_all_tokens()
     await concurrency_manager.initialize(tokens)
 
+    # File cache cleanup is now manual/on-demand via purge endpoint
     # Start file cache cleanup task
     if not os.getenv("VERCEL"):
         await generation_handler.file_cache.start_cleanup_task()
@@ -95,6 +96,7 @@ async def lifespan(app: FastAPI):
     print(f"✓ Database initialized")
     print(f"✓ Total tokens: {len(tokens)}")
     print(f"✓ Cache: {'Enabled' if config.cache_enabled else 'Disabled'} (timeout: {config.cache_timeout}s)")
+    print(f"✓ Storage Backend: {config.storage_backend}")
     print(f"✓ Server running on http://{config.server_host}:{config.server_port}")
     print("=" * 60)
 
@@ -139,6 +141,7 @@ generation_handler = GenerationHandler(
 
 # Set dependencies
 routes.set_generation_handler(generation_handler)
+admin.set_dependencies(token_manager, proxy_manager, db, generation_handler)
 admin.set_dependencies(token_manager, proxy_manager, db, config)
 
 # Create FastAPI app
@@ -162,6 +165,11 @@ app.add_middleware(
 app.include_router(routes.router)
 app.include_router(admin.router)
 
+# Static files - serve tmp directory for cached files if using local backend
+if config.storage_backend == "local":
+    tmp_dir = Path(__file__).parent.parent / "tmp"
+    tmp_dir.mkdir(exist_ok=True)
+    app.mount("/tmp", StaticFiles(directory=str(tmp_dir)), name="tmp")
 # Static files - serve tmp directory for cached files
 if os.getenv("VERCEL"):
     tmp_dir = Path("/tmp")

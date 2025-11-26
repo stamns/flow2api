@@ -271,6 +271,24 @@ class Config:
             self._config["cache"]["timeout"] = int(os.getenv("CACHE_TIMEOUT"))
         if os.getenv("CACHE_BASE_URL"):
             self._config["cache"]["base_url"] = os.getenv("CACHE_BASE_URL")
+        
+        # Storage settings
+        if "storage" not in self._config:
+            self._config["storage"] = {}
+        if os.getenv("STORAGE_BACKEND"):
+            self._config["storage"]["backend"] = os.getenv("STORAGE_BACKEND")
+        if os.getenv("S3_BUCKET_NAME"):
+            self._config["storage"]["s3_bucket_name"] = os.getenv("S3_BUCKET_NAME")
+        if os.getenv("S3_REGION_NAME"):
+            self._config["storage"]["s3_region_name"] = os.getenv("S3_REGION_NAME")
+        if os.getenv("S3_ENDPOINT_URL"):
+            self._config["storage"]["s3_endpoint_url"] = os.getenv("S3_ENDPOINT_URL")
+        if os.getenv("S3_ACCESS_KEY"):
+            self._config["storage"]["s3_access_key"] = os.getenv("S3_ACCESS_KEY")
+        if os.getenv("S3_SECRET_KEY"):
+            self._config["storage"]["s3_secret_key"] = os.getenv("S3_SECRET_KEY")
+        if os.getenv("S3_PUBLIC_DOMAIN"):
+            self._config["storage"]["s3_public_domain"] = os.getenv("S3_PUBLIC_DOMAIN")
         self.settings = Settings()
         self._db_overrides: Dict[str, Any] = {}
 
@@ -634,6 +652,36 @@ class Config:
     def database_url(self) -> Optional[str]:
         """Get database URL from environment"""
         return self._config.get("database", {}).get("url")
+
+    # Storage configuration
+    @property
+    def storage_backend(self) -> str:
+        """Get storage backend (local/s3)"""
+        return self._config.get("storage", {}).get("backend", "local")
+
+    @property
+    def s3_bucket_name(self) -> Optional[str]:
+        return self._config.get("storage", {}).get("s3_bucket_name")
+
+    @property
+    def s3_region_name(self) -> Optional[str]:
+        return self._config.get("storage", {}).get("s3_region_name")
+
+    @property
+    def s3_endpoint_url(self) -> Optional[str]:
+        return self._config.get("storage", {}).get("s3_endpoint_url")
+
+    @property
+    def s3_access_key(self) -> Optional[str]:
+        return self._config.get("storage", {}).get("s3_access_key")
+
+    @property
+    def s3_secret_key(self) -> Optional[str]:
+        return self._config.get("storage", {}).get("s3_secret_key")
+
+    @property
+    def s3_public_domain(self) -> Optional[str]:
+        return self._config.get("storage", {}).get("s3_public_domain")
 
 # Global config instance
 config = Config()
