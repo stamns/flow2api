@@ -2,10 +2,12 @@
 import asyncio
 import hashlib
 import time
+import os
 from pathlib import Path
 from typing import Optional
 from curl_cffi.requests import AsyncSession
 from ..core.logger import debug_logger
+from ..core.config import config
 from .storage_backends import LocalStorageBackend, S3StorageBackend
 
 

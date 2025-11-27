@@ -10,6 +10,20 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
     A settings source class that loads variables from a TOML file
     at the project's root (config/setting.toml).
     """
+    def __call__(self) -> Dict[str, Any]:
+        config_path = Path(__file__).parent.parent.parent / "config" / "setting.toml"
+        
+        if not config_path.exists():
+             return {}
+             
+        try:
+            with open(config_path, "rb") as f:
+                file_content = tomli.load(f)
+        except Exception:
+            return {}
+            
+        return self._flatten_toml(file_content)
+
     def get_field_value(
         self, field: FieldInfo, field_name: str
     ) -> Tuple[Any, str, bool]:

@@ -997,7 +997,7 @@ class SqliteAdapter(DatabaseAdapter):
     # Debug config operations
     async def get_debug_config(self) -> 'DebugConfig':
         """Get debug configuration"""
-        from .models import DebugConfig
+        from ..models import DebugConfig
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute("SELECT * FROM debug_config WHERE id = 1")

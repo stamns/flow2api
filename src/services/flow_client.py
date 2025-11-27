@@ -13,7 +13,6 @@ class FlowClient:
     """VideoFX API客户端"""
 
     def __init__(self, proxy_manager, config: Config):
-    def __init__(self, proxy_manager, config):
         self.proxy_manager = proxy_manager
         self.config = config
         self.labs_base_url = config.flow_labs_base_url  # https://labs.google/fx/api

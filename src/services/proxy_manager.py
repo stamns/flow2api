@@ -7,9 +7,7 @@ from ..core.config import Config
 class ProxyManager:
     """Proxy configuration manager"""
 
-    def __init__(self, db: Database, config: Config):
-    def __init__(self, db: DatabaseAdapter):
-    def __init__(self, db: Database, config):
+    def __init__(self, db: DatabaseAdapter, config: Config):
         self.db = db
         self.config = config
 
