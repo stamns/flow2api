@@ -53,3 +53,4 @@ logs.txt
 *.tmp
 *.bak
 *.cache
+test_report.html
